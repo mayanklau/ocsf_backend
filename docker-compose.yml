@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  # ── OCSF Processor Service ──
+  ocsf-processor:
+    build: .
+    container_name: ocsf-processor
+    ports:
+      - "8900:8900"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8900
+      - WORKERS=4
+      - DEBUG=false
+      - REDIS_URL=redis://redis:6379/0
+      - BEAD_MEMORY_ENABLED=true
+      - BEAD_CORRELATION_WINDOW_SEC=3600
+      # Agentic SOC Agent Endpoints
+      - AGENT_DETECTION_URL=http://detection-agent:8001/api/v1/detect
+      - AGENT_TRIAGE_URL=http://triage-agent:8002/api/v1/triage
+      - AGENT_THREAT_INTEL_URL=http://threat-intel-agent:8003/api/v1/enrich
+      - AGENT_INVESTIGATION_URL=http://investigation-agent:8004/api/v1/investigate
+      - AGENT_RESPONSE_URL=http://response-agent:8005/api/v1/respond
+      - AGENT_HUNTING_URL=http://hunting-agent:8006/api/v1/hunt
+      - AGENT_FORENSICS_URL=http://forensics-agent:8007/api/v1/forensics
+      - AGENT_COMPLIANCE_URL=http://compliance-agent:8008/api/v1/compliance
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - agentic-soc
+
+  # ── Redis (Bead Memory + Queues) ──
+  redis:
+    image: redis:7-alpine
+    container_name: ocsf-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - agentic-soc
+
+volumes:
+  redis-data:
+
+networks:
+  agentic-soc:
+    name: agentic-soc-network
+    driver: bridge
